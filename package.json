@@ -1,0 +1,45 @@
+{
+  "name": "zaplens-funil-vsl",
+  "version": "0.1.0",
+  "packageManager": "npm@10.9.2",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:turbo": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prebuild:cf": "node scripts/limpar-build.mjs",
+    "build:cf": "opennextjs-cloudflare build",
+    "deploy:cf": "opennextjs-cloudflare deploy"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cobe": "^0.6.4",
+    "framer-motion": "^12.15.0",
+    "lottie-react": "^2.4.1",
+    "lucide-react": "^0.511.0",
+    "motion": "^12.16.0",
+    "next": "^15.5.28",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-facebook-pixel": "^1.0.4",
+    "tailwind-merge": "^3.3.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@opennextjs/cloudflare": "^1.20.16",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.8",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5",
+    "wrangler": "^4.158.0"
+  }
+}
