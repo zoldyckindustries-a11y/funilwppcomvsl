@@ -14,7 +14,12 @@ import Script from "next/script";
 // etapas pela querystring (mesma rota) e o back-redirect usa
 // `window.location.href`, que recarrega a página e roda este script de novo.
 
-const META_PIXEL_ID = "1723014578387937";
+// Dois pixels do Meta, de duas contas de anúncios diferentes. O fbq aceita
+// vários `init` no mesmo carregamento: a partir daí todo `fbq('track', ...)`
+// sem id explícito dispara para TODAS as contas inicializadas — inclusive os
+// ReactPixel.track() espalhados pelo funil, que escrevem no mesmo window.fbq.
+// Para rastrear em mais uma conta basta acrescentar o id nesta lista.
+const META_PIXEL_IDS = ["1723014578387937", "1165870849210114"];
 const UTMIFY_PIXEL_ID = "6af7adbea56ed20879a25554";
 
 export function Pixels() {
@@ -36,19 +41,22 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${META_PIXEL_ID}');
+${META_PIXEL_IDS.map((id) => `fbq('init', '${id}');`).join("\n")}
 fbq('track', 'PageView');`}
       </Script>
 
       <noscript>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          height="1"
-          width="1"
-          style={{ display: "none" }}
-          alt=""
-          src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
-        />
+        {META_PIXEL_IDS.map((id) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={id}
+            height="1"
+            width="1"
+            style={{ display: "none" }}
+            alt=""
+            src={`https://www.facebook.com/tr?id=${id}&ev=PageView&noscript=1`}
+          />
+        ))}
       </noscript>
 
       {/* Pixel da Utmify.
