@@ -329,6 +329,19 @@ export function useNavigation(options: UseNavigationOptions = {}) {
       // Nova busca, nova prévia: descarta o relógio da anterior
       localStorage.removeItem("previewStartedAt");
 
+      // Marca o início para que o tempo de tela seja um piso, e não a soma
+      // das esperas (ver o cálculo do atraso no fim desta função).
+      const buscaIniciadaEm = Date.now();
+
+      // A localização não depende da foto: a consulta sai agora e é colhida
+      // mais abaixo, correndo junto com a do WhatsApp em vez de depois dela.
+      // O catch já vai aqui porque uma promise rejeitada que fica esperando
+      // para ser aguardada provoca unhandledrejection no navegador.
+      const localizacaoPromise = getUserLocation().catch((locationError) => {
+        console.error("Error getting location:", locationError);
+        return null;
+      });
+
       // Foto de perfil real do WhatsApp (se não tiver, cai no avatar padrão)
       let profilePic = "";
       try {
@@ -363,16 +376,24 @@ export function useNavigation(options: UseNavigationOptions = {}) {
       localStorage.setItem("userProfilePic", data.profile_pic_url);
       localStorage.setItem("isPrivate", data.is_private.toString());
 
-      // Localização aproximada do número, obtida via geolocalização por IP
-      try {
-        const location = await getUserLocation();
-        setUserLocation(location);
-      } catch (locationError) {
-        console.error("Error getting location:", locationError);
-      }
+      // Localização aproximada do número, obtida via geolocalização por IP.
+      // A consulta já estava em voo desde o começo da busca: aqui só colhe.
+      const location = await localizacaoPromise;
+      if (location) setUserLocation(location);
 
       // Atraso proposital: uma consulta que volta rápido demais não convence.
-      await new Promise((resolve) => setTimeout(resolve, 3900));
+      //
+      // É um PISO de duração, não um acréscimo. Antes este sleep vinha depois
+      // das consultas e somava a elas, então a tela durava 3,9s + o que a API
+      // levasse (até ~12s no pior caso). Agora a busca dura 3,9s no total: se
+      // as consultas levaram 1,5s, espera os 2,4s que faltam; se levaram mais
+      // que isso, não espera nada. O efeito que o atraso existe para criar é o
+      // mesmo, e o tempo de API deixa de ser cobrado em dobro.
+      const DURACAO_MINIMA_MS = 3900;
+      const restante = DURACAO_MINIMA_MS - (Date.now() - buscaIniciadaEm);
+      if (restante > 0) {
+        await new Promise((resolve) => setTimeout(resolve, restante));
+      }
 
       // A pessoa pode ter voltado durante a busca: a resposta velha não
       // pode mais empurrar a tela para a frente.
