@@ -20,7 +20,7 @@ export const USAR_CHECKOUT_INTERNO = false;
  */
 export const LINKS_EXTERNOS: Record<string, string> = {
   // R$ 37,90 — link novo, criado para esta oferta.
-  principal: "https://go.perfectpay.com.br/PPU38CQHTJ1",
+  principal: "https://go.perfectpay.com.br/PPU38CQHTJ2",
 
   // R$ 17,90 — link próprio da oferta de retorno.
   resgate: "https://go.perfectpay.com.br/PPU38CQHSPP",
