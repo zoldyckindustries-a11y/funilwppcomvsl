@@ -1,0 +1,78 @@
+# Cabeçalhos do Cloudflare Workers Assets.
+#
+# Este arquivo é copiado para `.open-next/assets/_headers` no build e lido
+# pelo servidor de estáticos do Workers. Ele existe por causa do aviso "use
+# ciclos de vida eficientes de cache" do PageSpeed: sem ele TUDO que é
+# servido como estático — inclusive os chunks do Next — sai com
+# `max-age=0, must-revalidate`, e o navegador rebaixa o site inteiro a cada
+# visita.
+#
+# ORDEM IMPORTA. Quando mais de uma regra casa o mesmo arquivo, a ÚLTIMA
+# define o cabeçalho. Por isso o arquivo vai do geral para o específico:
+# `/avatares/foto.webp` casa `/*.webp` e `/avatares/*`, e é a segunda que
+# tem que valer.
+
+# ---------------------------------------------------------------------
+# 1. Avulsos na raiz de public/ (logos, SVGs soltos, a animação Lottie).
+#    Um mês com revalidação em segundo plano: são poucos arquivos, e a
+#    raiz é onde o risco de trocar a arte sem trocar o nome é maior.
+# ---------------------------------------------------------------------
+
+/*.svg
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+
+/*.png
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+
+/*.webp
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+
+/*.json
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+
+# ---------------------------------------------------------------------
+# 2. Mídia do funil. Um ano, `immutable`.
+#
+#    Estes nomes NÃO têm hash de conteúdo, então o preço do ano de cache é
+#    que trocar a arte exige trocar o nome do arquivo (ex.:
+#    `avatar 01.webp` -> `avatar 01-v2.webp`). Para o funil é o certo: essas
+#    mídias praticamente não mudam, e quando mudam é junto com um deploy
+#    que já mexe no código que as referencia.
+# ---------------------------------------------------------------------
+
+/avatares/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/wppgalery/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/produtos/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/depoimentos/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/Gif/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/icon/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# ---------------------------------------------------------------------
+# 3. Os chunks do Next.
+#
+#    Esta regra NÃO vem de graça: o worker do OpenNext não põe
+#    Cache-Control nos estáticos — tanto que o próprio `opennextjs-cloudflare
+#    migrate` escreve esta mesma linha num `public/_headers`. Sem ela o
+#    navegador rebaixava ~140 kB de JavaScript a cada visita, que é a maior
+#    fatia do aviso do PageSpeed.
+#
+#    Aqui o ano e o `immutable` são seguros sem ressalva: o Next assina cada
+#    arquivo com o hash do conteúdo, então mudar o código já muda o nome.
+#
+#    Por último porque `/*.json` casaria também em
+#    `/_next/static/.../algo.json` e daria a ele só um mês.
+# ---------------------------------------------------------------------
+
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
