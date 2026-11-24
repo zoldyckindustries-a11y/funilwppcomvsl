@@ -295,7 +295,7 @@ export default function ChatIndividual({
     2: {
       name: "MeuAmor_22",
       username: "@meuamor_22",
-      avatar: "/avatares/avatardirect02.png",
+      avatar: "/avatares/avatardirect02.webp",
       isOnline: false,
       messages: [
         {
@@ -382,7 +382,7 @@ export default function ChatIndividual({
     3: {
       name: "Crush_Forever",
       username: "@crush_forever",
-      avatar: "/avatares/avatardirect03.png",
+      avatar: "/avatares/avatardirect03.webp",
       isOnline: false,
       messages: [
         {
@@ -473,7 +473,7 @@ export default function ChatIndividual({
     4: {
       name: "Segredo_Nosso",
       username: "@segredo_nosso",
-      avatar: "/avatares/avatardirect04.png",
+      avatar: "/avatares/avatardirect04.webp",
       isOnline: false,
       messages: [
         {

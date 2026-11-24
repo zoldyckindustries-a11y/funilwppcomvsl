@@ -524,18 +524,18 @@ function MockChat({ alvo, foto }: { alvo: string; foto?: string | null }) {
 // pele, nem a luz irregular de uma foto tirada no celular.
 //
 // Origem: public/wppgalery, uma imagem por quadro. Lembre que o desfoque
-// daqui é CSS: os arquivos continuam servidos inteiros em /wppgalery/*.png
+// daqui é CSS: os arquivos continuam servidos inteiros em /wppgalery/*.webp
 // para quem abrir a URL direto, então o que vale é o que já está no arquivo.
 //
 // O recorte varia pelo translate. Com scale 1.25 a imagem sobra 12,5% para
 // cada lado, então deslocar até 7% nunca descobre a borda do quadro.
 const MIDIA_PRIVADA = [
-  { src: "/wppgalery/1.png", t: "translate(-2%, -3%)" },
-  { src: "/wppgalery/2.png", t: "translate(-3%, -2%)" },
-  { src: "/wppgalery/3.png", t: "translate(2%, -4%)" },
-  { src: "/wppgalery/4.png", t: "translate(-1%, 3%)" },
-  { src: "/wppgalery/5.png", t: "translate(4%, 1%)" },
-  { src: "/wppgalery/6.png", t: "translate(-4%, 3%)" },
+  { src: "/wppgalery/1.webp", t: "translate(-2%, -3%)" },
+  { src: "/wppgalery/2.webp", t: "translate(-3%, -2%)" },
+  { src: "/wppgalery/3.webp", t: "translate(2%, -4%)" },
+  { src: "/wppgalery/4.webp", t: "translate(-1%, 3%)" },
+  { src: "/wppgalery/5.webp", t: "translate(4%, 1%)" },
+  { src: "/wppgalery/6.webp", t: "translate(-4%, 3%)" },
 ];
 
 function MockGallery({ alvo, foto }: { alvo: string; foto?: string | null }) {

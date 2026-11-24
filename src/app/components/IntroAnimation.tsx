@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { Radar, Lock, Search } from "lucide-react";
 import { colors } from "../../constants/theme";
 
@@ -10,6 +10,45 @@ interface IntroAnimationProps {
   subscription?: string;
   subscription_2?: string;
 }
+
+// Roteiro da abertura, num lugar só.
+//
+// Estes números são o tempo de cada entrada contado a partir da PRIMEIRA
+// PINTURA, não da hidratação. Antes cada bloco esperava um setTimeout em
+// JavaScript para trocar de classe, então o relógio só começava depois que o
+// bundle baixava, parseava e hidratava — no celular isso somava mais de um
+// segundo em cima de cada marca, e o <h2> (que é o elemento de LCP da
+// página) só aparecia aos ~6,7 s. Agora a entrada é CSS puro com
+// animation-delay: o navegador cumpre o roteiro sozinho, mesmo com o
+// JavaScript ainda a caminho.
+//
+// Para encurtar a abertura inteira, mexa aqui — nada mais depende desses
+// valores estarem espalhados pelo componente.
+const T = {
+  linha: 160, // intervalo entre uma conversa e a seguinte
+  titulo: 600, // <h2> — elemento de LCP
+  contador: 1100,
+  selo: 1600,
+  saida: 4500,
+  fim: 5300,
+} as const;
+
+// O contador NÃO começa do zero, e isso é sobre LCP, não sobre narrativa.
+//
+// O <h1> é um dos dois candidatos a elemento de LCP da tela. Enquanto ele
+// pintava "0" e só depois da hidratação virava "14.832", a área pintada
+// CRESCIA: o navegador registrava um candidato novo, maior, no instante da
+// troca — ou seja, o LCP da página passava a ser o momento em que o bundle
+// terminava de hidratar, e não o momento em que o texto apareceu. Num Moto
+// G Power isso jogava a métrica para 6,7 s mesmo com a tela já desenhada
+// desde 0,8 s.
+//
+// Partindo de um número com a MESMA contagem de dígitos do alvo, a caixa de
+// texto nasce do tamanho final (com `tabular-nums`, cada dígito ocupa a
+// mesma largura). A contagem continua subindo na tela; o que deixa de
+// acontecer é o elemento mudar de tamanho depois.
+const CONTADOR_DE = 14100;
+const CONTADOR_ATE = 14832;
 
 // Linhas da lista que está sendo varrida. Larguras irregulares porque
 // conversa real não tem nome nem prévia do mesmo tamanho.
@@ -21,6 +60,15 @@ const LINHAS = [
   { nome: "58%", previa: "78%", hora: "ontem", naoLidas: 3, tom: "#D4A5A5" },
 ];
 
+// Monta as variáveis que a classe .rev lê, sem espalhar `as CSSProperties`
+// por sete lugares.
+const entrada = (atraso: number, de: string, para: string): CSSProperties =>
+  ({
+    animationDelay: `${atraso}ms`,
+    "--rev-de": de,
+    "--rev-para": para,
+  } as CSSProperties);
+
 export default function IntroAnimation({
   onComplete,
   title,
@@ -28,54 +76,44 @@ export default function IntroAnimation({
   subscription_2,
 }: IntroAnimationProps) {
   const [showAnimation, setShowAnimation] = useState(true);
-  const [counter, setCounter] = useState(0);
-  const [showBrand, setShowBrand] = useState(false);
-  const [showCounter, setShowCounter] = useState(false);
-  const [showSubtext, setShowSubtext] = useState(false);
-  const [linhasVisiveis, setLinhasVisiveis] = useState(0);
-  const [animationPhase, setAnimationPhase] = useState<
-    "enter" | "display" | "exit"
-  >("enter");
+  const [counter, setCounter] = useState(CONTADOR_DE);
+  const [animationPhase, setAnimationPhase] = useState<"enter" | "exit">(
+    "enter"
+  );
 
-  // As conversas entram uma a uma, como quem acabou de achar cada uma
+  // O contador é a única parte que precisa mesmo de JavaScript: é um número
+  // subindo, não uma transição. Ele persegue o mesmo relógio do CSS
+  // (performance.now() conta desde o início da navegação, igual ao
+  // animation-delay), então se a hidratação atrasar ele entra já adiantado
+  // em vez de começar do zero tarde demais — o bloco nunca fica exibindo
+  // "0" parado depois de ter aparecido.
   useEffect(() => {
-    if (linhasVisiveis >= LINHAS.length) return;
-    const t = setTimeout(() => setLinhasVisiveis((n) => n + 1), 260);
-    return () => clearTimeout(t);
-  }, [linhasVisiveis]);
+    const duracao = 1200;
+    const inicio = Math.max(performance.now(), T.contador);
+    let quadro = 0;
 
-  useEffect(() => {
-    if (showCounter) {
-      const target = 14832;
-      const duration = 1200;
-      const steps = 60;
-      const increment = target / steps;
+    const tick = () => {
+      const p = Math.min(
+        Math.max(performance.now() - inicio, 0) / duracao,
+        1
+      );
+      setCounter(
+        Math.floor(CONTADOR_DE + (CONTADOR_ATE - CONTADOR_DE) * p)
+      );
+      if (p < 1) quadro = requestAnimationFrame(tick);
+    };
 
-      let current = 0;
-      const timer = setInterval(() => {
-        current += increment;
-        if (current >= target) {
-          setCounter(target);
-          clearInterval(timer);
-        } else {
-          setCounter(Math.floor(current));
-        }
-      }, duration / steps);
-
-      return () => clearInterval(timer);
-    }
-  }, [showCounter]);
+    quadro = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(quadro);
+  }, []);
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setShowBrand(true), 1600),
-      setTimeout(() => setShowCounter(true), 2600),
-      setTimeout(() => setShowSubtext(true), 3600),
-      setTimeout(() => setAnimationPhase("exit"), 7000),
+      setTimeout(() => setAnimationPhase("exit"), T.saida),
       setTimeout(() => {
         setShowAnimation(false);
         onComplete();
-      }, 8200),
+      }, T.fim),
     ];
 
     return () => timers.forEach(clearTimeout);
@@ -86,7 +124,11 @@ export default function IntroAnimation({
   const saindo = animationPhase === "exit";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden">
+    <div
+      className={`abertura fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden ${
+        saindo ? "saindo" : ""
+      }`}
+    >
       <div
         className={`absolute inset-0 transition-opacity duration-1000 ${
           saindo ? "opacity-0" : "opacity-100"
@@ -170,12 +212,8 @@ export default function IntroAnimation({
             {LINHAS.map((l, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2.5 py-[7px] transition-all duration-500"
-                style={{
-                  opacity: i < linhasVisiveis ? 1 : 0,
-                  transform:
-                    i < linhasVisiveis ? "translateX(0)" : "translateX(-12px)",
-                }}
+                className="rev flex items-center gap-2.5 py-[7px]"
+                style={entrada(i * T.linha, "translateX(-12px)", "none")}
               >
                 <div
                   className="w-8 h-8 rounded-full blur-[2.5px] flex-shrink-0"
@@ -225,14 +263,11 @@ export default function IntroAnimation({
           </div>
         </div>
 
+        {/* Elemento de LCP da página. A entrada é CSS, então ele pinta na
+            hora certa mesmo com o JavaScript ainda baixando. */}
         <div
-          className={`text-center mb-5 transition-all duration-700 ${
-            showBrand && !saindo
-              ? "opacity-100 translate-y-0"
-              : showBrand && saindo
-              ? "opacity-0 -translate-y-2"
-              : "opacity-0 translate-y-5"
-          }`}
+          className="rev text-center mb-5"
+          style={entrada(T.titulo, "translateY(20px)", "translateY(-8px)")}
         >
           <h2 className="text-[20px] md:text-2xl font-bold leading-tight text-white">
             {title ? title : "O que apagaram não sumiu"}
@@ -246,13 +281,8 @@ export default function IntroAnimation({
         </div>
 
         <div
-          className={`text-center mb-5 transition-all duration-700 ${
-            showCounter && !saindo
-              ? "opacity-100 translate-y-0"
-              : showCounter && saindo
-              ? "opacity-0 -translate-y-3"
-              : "opacity-0 translate-y-6"
-          }`}
+          className="rev text-center mb-5"
+          style={entrada(T.contador, "translateY(24px)", "translateY(-12px)")}
         >
           <h1
             className="text-[40px] md:text-5xl font-bold leading-none tabular-nums"
@@ -269,13 +299,8 @@ export default function IntroAnimation({
         </div>
 
         <div
-          className={`text-center transition-all duration-700 ${
-            showSubtext && !saindo
-              ? "opacity-100 translate-y-0"
-              : showSubtext && saindo
-              ? "opacity-0 translate-y-2"
-              : "opacity-0 translate-y-4"
-          }`}
+          className="rev text-center"
+          style={entrada(T.selo, "translateY(16px)", "translateY(8px)")}
         >
           <div
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full"
@@ -296,6 +321,45 @@ export default function IntroAnimation({
       </div>
 
       <style jsx>{`
+        /* Entrada de cada bloco. O atraso vem por style inline; a distância
+           percorrida vem das variáveis --rev-de / --rev-para. O fill-mode
+           "both" é o que prende o elemento no estado inicial durante o
+           atraso e o mantém visível depois — juntos eles substituem o
+           opacity-0 que vinha no HTML e que só saía na hidratação. */
+        .rev {
+          animation: rev-entra 700ms cubic-bezier(0.22, 0.61, 0.36, 1)
+            both;
+        }
+
+        @keyframes rev-entra {
+          from {
+            opacity: 0;
+            transform: var(--rev-de, translateY(20px));
+          }
+          to {
+            opacity: 1;
+            transform: none;
+          }
+        }
+
+        /* Saída. É outra animação, e não uma transição, para não disputar
+           com a de entrada — que termina com o estado preso por "both". */
+        .saindo .rev {
+          animation: rev-sai 700ms cubic-bezier(0.4, 0, 1, 1) both;
+          animation-delay: 0ms;
+        }
+
+        @keyframes rev-sai {
+          from {
+            opacity: 1;
+            transform: none;
+          }
+          to {
+            opacity: 0;
+            transform: var(--rev-para, translateY(-8px));
+          }
+        }
+
         .scanner-beam {
           position: absolute;
           left: 0;
@@ -348,6 +412,30 @@ export default function IntroAnimation({
           }
           .scanner-beam {
             opacity: 0;
+          }
+          /* Sem movimento, mas o roteiro continua: os blocos ainda entram
+             na hora certa, só que apenas com opacidade. */
+          .rev {
+            animation-name: rev-entra-suave;
+          }
+          .saindo .rev {
+            animation-name: rev-sai-suave;
+          }
+          @keyframes rev-entra-suave {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+          @keyframes rev-sai-suave {
+            from {
+              opacity: 1;
+            }
+            to {
+              opacity: 0;
+            }
           }
         }
       `}</style>

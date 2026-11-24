@@ -101,11 +101,22 @@ export default function ProfileConfirmModal({
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.3 }}
                   >
+                    {/* `unoptimized` de propósito. A URL do pps.whatsapp.net
+                        é assinada e diferente para cada lead, então o
+                        otimizador do Next NUNCA acerta o cache: toda busca
+                        virava um MISS, e o worker tinha que baixar a foto e
+                        redimensionar antes de o rosto aparecer na tela —
+                        medido em 13s no primeiro MISS contra 0,1s a 0,9s
+                        buscando direto do CDN da Meta, que já é de borda.
+                        Para 64px, os 35 KB do original não justificam pagar
+                        esse pedágio em cima da única imagem que a oferta
+                        depende de mostrar rápido. */}
                     <Image
                       src={profileImageUrl}
                       alt="Foto do perfil"
                       width={64}
                       height={64}
+                      unoptimized
                       className="w-full h-full object-cover"
                     />
                   </motion.div>

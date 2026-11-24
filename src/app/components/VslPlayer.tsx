@@ -23,6 +23,10 @@
 import { useEffect, useRef } from "react";
 
 const PLAYER_ID = "vid-6af757b3bb399ceddba025da";
+// ATENÇÃO: esta URL também está em `telasLazy.tsx`, como `VSL_SCRIPT`, onde
+// serve para dar `rel="preload"` no script uma tela antes de a oferta abrir.
+// Trocou o vídeo? Troque nos DOIS lugares, senão o preload baixa o player
+// velho e o ganho vira download desperdiçado.
 const SCRIPT_SRC =
   "https://scripts.converteai.net/b0f41f85-0c7a-4222-adab-eff21b86bf8b/players/6af757b3bb399ceddba025da/v4/player.js";
 

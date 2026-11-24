@@ -1,10 +1,13 @@
 "use client";
 
-import ProfileConfirmModal from "../components/ProfileConfirmModal";
-import LoadingAnalysis from "../components/LoadingAnalysis";
-import InstagramDirect from "../components/InstagramDirect";
-import ChatIndividual from "../components/ChatIndividual";
-import PitchPage from "../components/PitchPage";
+import {
+  ProfileConfirmModal,
+  LoadingAnalysis,
+  InstagramDirect,
+  ChatIndividual,
+  PitchPage,
+  usePrefetchTelas,
+} from "../components/telasLazy";
 import { useNavigation } from "../../hooks/useNavigation";
 import { useCounter } from "../../hooks/useCounter";
 import { colors, glassmorphism } from "../../constants/theme";
@@ -34,6 +37,9 @@ interface HomeProps {
 export default function RocPage(props: HomeProps) {
   const navigation = useNavigation({ skipIntro: true });
   const counter = useCounter({ autoStart: true }); // Always start counter since we skip intro
+
+  // Busca o chunk da próxima tela enquanto a thread está ociosa.
+  usePrefetchTelas(navigation.etapa);
 
   // Se está na tela de pitch, mostrar apenas ela
   if (navigation.showPitch) {
@@ -395,7 +401,7 @@ export default function RocPage(props: HomeProps) {
                           onClick={() => navigation.handleSearch()}
                           disabled={
                             !navigation.isPhoneValid ||
-                            navigation.isFetchingProfileImage
+                            navigation.isSearching
                           }
                           className="px-10 py-3 rounded-full font-semibold text-white tracking-wide transition-all duration-300 disabled:cursor-not-allowed active:scale-[0.98]"
                           style={{
@@ -403,12 +409,12 @@ export default function RocPage(props: HomeProps) {
                             boxShadow: `0 6px 18px ${colors.primaryBright}4D`,
                             opacity:
                               !navigation.isPhoneValid &&
-                              !navigation.isFetchingProfileImage
+                              !navigation.isSearching
                                 ? 0.4
                                 : 1,
                           }}
                         >
-                          {navigation.isFetchingProfileImage ? (
+                          {navigation.isSearching ? (
                             <span className="flex items-center space-x-2">
                               <Loader2 className="w-4 h-4 animate-spin" />
                               <span>Localizando...</span>

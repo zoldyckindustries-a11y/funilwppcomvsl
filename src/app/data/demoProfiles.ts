@@ -26,19 +26,19 @@ export const CONVERSAS_LIBERADAS: DemoProfile[] = [
     pk: "1002",
     username: "meuamor_22",
     full_name: "MeuAmor_22",
-    profile_pic_url: "/avatares/avatardirect02.png",
+    profile_pic_url: "/avatares/avatardirect02.webp",
   },
   {
     pk: "1003",
     username: "crush_forever",
     full_name: "Crush_Forever",
-    profile_pic_url: "/avatares/avatardirect03.png",
+    profile_pic_url: "/avatares/avatardirect03.webp",
   },
   {
     pk: "1004",
     username: "segredo_nosso",
     full_name: "Segredo_Nosso",
-    profile_pic_url: "/avatares/avatardirect04.png",
+    profile_pic_url: "/avatares/avatardirect04.webp",
   },
 ];
 
@@ -48,7 +48,7 @@ export const CONVERSAS_LIBERADAS: DemoProfile[] = [
 export const CONTATOS_BLOQUEADOS: DemoProfile[] = [
   // Recebeu a foto que saiu da primeira conversa: uma lista só de iniciais
   // é tão artificial quanto uma lista só de fotos.
-  { pk: "2001", username: "ana.costa92", full_name: "Ana Costa", profile_pic_url: "/avatares/avatardirect01.png" },
+  { pk: "2001", username: "ana.costa92", full_name: "Ana Costa", profile_pic_url: "/avatares/avatardirect01.webp" },
   { pk: "2002", username: "lucas.santos", full_name: "Lucas Santos", profile_pic_url: "" },
   { pk: "2003", username: "julia_mendes", full_name: "Julia Mendes", profile_pic_url: "" },
   { pk: "2004", username: "pedro_oliveira", full_name: "Pedro Oliveira", profile_pic_url: "" },

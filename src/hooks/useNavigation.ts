@@ -134,6 +134,16 @@ export function useNavigation(options: UseNavigationOptions = {}) {
   const [targetName, setTargetName] = useState<string>("");
   const [userHasTyped, setUserHasTyped] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  // Dois estados diferentes de propósito:
+  //
+  // `isSearching` é a tela de busca: vale do clique até a troca de tela, e é
+  // o que trava o botão. Dura o piso de 3,9s, sempre.
+  //
+  // `isFetchingProfileImage` é só a consulta da foto, que agora pode
+  // continuar em voo depois de o modal abrir. Enquanto estava tudo no mesmo
+  // estado, uma foto que respondia em 1s destravava o botão no meio da tela
+  // de busca e deixava a pessoa clicar "AVANÇAR" de novo.
+  const [isSearching, setIsSearching] = useState(false);
   const [isFetchingProfileImage, setIsFetchingProfileImage] = useState(false);
   const [fullName, setFullName] = useState<string | undefined>(undefined);
   const [bio, setBio] = useState<string | undefined>(undefined);
@@ -236,6 +246,14 @@ export function useNavigation(options: UseNavigationOptions = {}) {
         transitionTimerRef.current = null;
       }
 
+      // O token acabou de ser invalidado, então o `finally` da busca em voo
+      // vai ignorar o próprio desligamento dos spinners — e sem isto o botão
+      // AVANÇAR ficava preso em "Localizando...", desabilitado, para sempre:
+      // bastava voltar para a tela inicial durante a busca e tentar de novo.
+      setIsSearching(false);
+      setIsFetchingProfileImage(false);
+      setIsFetchingLocation(false);
+
       const atual = screenRef.current;
       const proximo = lerEstadoDaUrl();
 
@@ -318,14 +336,27 @@ export function useNavigation(options: UseNavigationOptions = {}) {
   const handleSearch = useCallback(async () => {
     if (!isValidBrazilianPhone(instagramHandle)) return;
     const token = ++searchTokenRef.current;
+    // A pessoa pode ter voltado durante a busca: uma resposta velha não pode
+    // mais mexer na tela nem empurrar o fluxo para a frente.
+    const aindaVale = () => searchTokenRef.current === token;
+
+    setIsSearching(true);
     setIsFetchingProfileImage(true);
     setIsFetchingLocation(true);
+
+    // Nova busca, alvo novo: a foto do anterior não pode sobrar na tela nem
+    // no localStorage enquanto a consulta está em voo. Antes a limpeza vinha
+    // junto com a gravação do resultado, no fim — e até lá o modal podia
+    // abrir mostrando a cara do número buscado na tentativa passada.
+    setProfileImageUrl(null);
+
     try {
       // Store the searched phone number in localStorage
       localStorage.setItem("searchedUsername", instagramHandle.trim());
       // nome do alvo também persiste: outras rotas (ex. back-redirect)
       // recarregam a página e perdem o estado do React
       localStorage.setItem("targetName", targetName.trim());
+      localStorage.removeItem("userProfilePic");
       // Nova busca, nova prévia: descarta o relógio da anterior
       localStorage.removeItem("previewStartedAt");
 
@@ -333,84 +364,117 @@ export function useNavigation(options: UseNavigationOptions = {}) {
       // das esperas (ver o cálculo do atraso no fim desta função).
       const buscaIniciadaEm = Date.now();
 
-      // A localização não depende da foto: a consulta sai agora e é colhida
-      // mais abaixo, correndo junto com a do WhatsApp em vez de depois dela.
-      // O catch já vai aqui porque uma promise rejeitada que fica esperando
-      // para ser aguardada provoca unhandledrejection no navegador.
+      // Dados fixos do alvo: não dependem de rede, então entram já. Deixá-los
+      // depois do `await` da foto só atrasava o que estava pronto.
+      setFullName("Contato Demo");
+      setBio("Vulnerabilidade detectada no backup");
+      setUserPk("1234567890");
+      localStorage.setItem("userId", "1234567890");
+      localStorage.setItem("isPrivate", "false");
+
+      // --- As duas consultas saem juntas e NENHUMA bloqueia a navegação ---
+      //
+      // Este era o nó do atraso. O código antigo fazia `await` na foto e
+      // depois `await` na localização ANTES de calcular o piso, então o piso
+      // de 3,9s só valia quando as consultas eram rápidas: o tempo real da
+      // tela era `max(API, 3,9s)`.
+      //
+      // E as duas APIs têm cauda longa de verdade:
+      //   - a foto do WhatsApp leva 15s a 20s quando o número não tem foto;
+      //   - `getUserLocation` encadeia TRÊS provedores de 5s cada, ou seja,
+      //     até 15s quando o ipapi.co está limitando por IP (o que acontece
+      //     direto).
+      // Somadas, davam uma tela de busca travada em "Localizando..." por
+      // mais de 30s no pior caso.
+      //
+      // Agora a tela de busca dura o piso e só o piso. O que chegar depois
+      // entra na tela por cima, que é exatamente o que o modal já sabe
+      // mostrar: ele tem spinner para a foto e para a cidade.
+
+      // O catch vai junto na criação da promise porque uma promise rejeitada
+      // que fica esperando para ser aguardada provoca unhandledrejection.
+      const fotoPromise = (async (): Promise<string> => {
+        try {
+          const res = await fetch("/api/whatsapp-profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: instagramHandle }),
+          });
+          // 502 = a rota não conseguiu saber (rede/timeout no upstream);
+          // 200 com picture null = o número não tem foto. Nos dois casos o
+          // avatar padrão resolve.
+          if (!res.ok) return "";
+          const json = await res.json();
+          return typeof json?.picture === "string" ? json.picture : "";
+        } catch (picError) {
+          console.error("Error fetching WhatsApp profile picture:", picError);
+          return "";
+        }
+      })();
+
+      fotoPromise.then((foto) => {
+        if (!aindaVale()) return;
+        setIsFetchingProfileImage(false);
+        if (!foto) return;
+        setProfileImageUrl(foto);
+        localStorage.setItem("userProfilePic", foto);
+        // A oferta lê a foto do localStorage no mount. Quando ela chega
+        // depois de a tela já ter trocado — o atalho de "já buscou" pula
+        // direto do modal para o pitch —, só o evento a faz aparecer.
+        window.dispatchEvent(
+          new CustomEvent("updatePitchFoto", { detail: { foto } })
+        );
+      });
+
       const localizacaoPromise = getUserLocation().catch((locationError) => {
         console.error("Error getting location:", locationError);
         return null;
       });
 
-      // Foto de perfil real do WhatsApp (se não tiver, cai no avatar padrão)
-      let profilePic = "";
-      try {
-        const res = await fetch("/api/whatsapp-profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: instagramHandle }),
-        });
-        if (res.ok) {
-          const json = await res.json();
-          profilePic = json?.picture ?? "";
-        }
-      } catch (picError) {
-        console.error("Error fetching WhatsApp profile picture:", picError);
-      }
-
-      const data = {
-        pk: "1234567890",
-        username: instagramHandle.trim(),
-        full_name: "Contato Demo",
-        biography: "Vulnerabilidade detectada no backup",
-        profile_pic_url: profilePic,
-        is_private: false,
-      };
-
-      setProfileImageUrl(data.profile_pic_url);
-      setFullName(data.full_name);
-      setBio(data.biography);
-      setUserPk(data.pk);
-      // Store the data we'll need later
-      localStorage.setItem("userId", data.pk);
-      localStorage.setItem("userProfilePic", data.profile_pic_url);
-      localStorage.setItem("isPrivate", data.is_private.toString());
-
-      // Localização aproximada do número, obtida via geolocalização por IP.
-      // A consulta já estava em voo desde o começo da busca: aqui só colhe.
-      const location = await localizacaoPromise;
-      if (location) setUserLocation(location);
+      localizacaoPromise.then((location) => {
+        if (!aindaVale()) return;
+        setIsFetchingLocation(false);
+        if (location) setUserLocation(location);
+      });
 
       // Atraso proposital: uma consulta que volta rápido demais não convence.
       //
-      // É um PISO de duração, não um acréscimo. Antes este sleep vinha depois
-      // das consultas e somava a elas, então a tela durava 3,9s + o que a API
-      // levasse (até ~12s no pior caso). Agora a busca dura 3,9s no total: se
-      // as consultas levaram 1,5s, espera os 2,4s que faltam; se levaram mais
-      // que isso, não espera nada. O efeito que o atraso existe para criar é o
-      // mesmo, e o tempo de API deixa de ser cobrado em dobro.
+      // É um PISO de duração, e agora de verdade: nada mais é aguardado antes
+      // dele, então a tela de busca dura 3,9s sempre, independente de como as
+      // APIs se comportem.
       const DURACAO_MINIMA_MS = 3900;
       const restante = DURACAO_MINIMA_MS - (Date.now() - buscaIniciadaEm);
       if (restante > 0) {
         await new Promise((resolve) => setTimeout(resolve, restante));
       }
 
-      // A pessoa pode ter voltado durante a busca: a resposta velha não
-      // pode mais empurrar a tela para a frente.
-      if (searchTokenRef.current !== token) return;
+      if (!aindaVale()) return;
+
+      // Os spinners morrem aqui, mesmo com consulta em voo.
+      //
+      // Enquanto eles dependiam só da resposta, um número cuja foto a API não
+      // consegue ler deixava o modal girando por mais 8s depois de abrir — e
+      // girar é pior que o avatar padrão, porque promete uma foto que não vem.
+      // As duas promises continuam vivas: se a foto chegar atrasada, ela
+      // aparece por cima do avatar.
+      setIsFetchingProfileImage(false);
+      setIsFetchingLocation(false);
 
       navigateTo("modal");
     } catch (error) {
       console.error("Error fetching profile image:", error);
+      if (!aindaVale()) return;
       setProfileImageUrl(null);
       setFullName(undefined);
       setBio(undefined);
       setUserPk(undefined);
+      setIsFetchingProfileImage(false);
+      setIsFetchingLocation(false);
     } finally {
-      if (searchTokenRef.current === token) {
-        setIsFetchingProfileImage(false);
-        setIsFetchingLocation(false);
-      }
+      // Só o botão de busca para de girar aqui. Os dois spinners do modal
+      // são desligados por cada consulta quando ela responde, senão a tela
+      // afirmaria "não tem foto" com a consulta ainda em voo.
+      if (aindaVale()) setIsSearching(false);
     }
   }, [instagramHandle, targetName, navigateTo]);
 
@@ -515,6 +579,10 @@ export function useNavigation(options: UseNavigationOptions = {}) {
 
   return {
     // State
+    // Etapa crua. Quem precisa reagir à tela atual — o prefetch dos chunks
+    // das telas seguintes, por exemplo — não deveria ter que remontar o
+    // nome a partir de sete booleanos.
+    etapa: screen,
     showIntro: screen === "intro",
     showSearchCard: screen === "search",
     showModal: screen === "modal",
@@ -528,6 +596,7 @@ export function useNavigation(options: UseNavigationOptions = {}) {
     targetName,
     userHasTyped,
     profileImageUrl,
+    isSearching,
     isFetchingProfileImage,
     fullName,
     bio,
